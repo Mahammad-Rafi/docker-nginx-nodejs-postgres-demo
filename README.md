@@ -1,8 +1,10 @@
-# Docker Nginx Node.js PostgreSQL Demo
+# Three-Tier Docker Stack
 
 ## Project Overview
 
 A production-style, single-host three-tier application built with Docker Compose. Nginx is the only public-facing service, an Express API provides application logic, and PostgreSQL stores persistent data on an isolated Docker bridge network.
+
+![Three-Tier Docker Stack running successfully](screenshots/placeholder.png)
 
 ## Architecture Diagram
 
@@ -76,43 +78,153 @@ docker-nginx-nodejs-postgres-demo/
 
 - Docker Engine with the Compose plugin, or Docker Desktop
 - Available host ports 80 and 443
-- Git, if you want to clone or publish the repository
+- Git, when using the clone method
 
-Verify Docker before continuing:
+## Installation
+
+### Step 1: Download the project
+
+Clone the repository with Git:
+
+```bash
+git clone https://github.com/Mahammad-Rafi/docker-nginx-nodejs-postgres-demo.git
+```
+
+Alternatively, [download the latest ZIP archive](https://github.com/Mahammad-Rafi/docker-nginx-nodejs-postgres-demo/archive/refs/heads/main.zip), extract it, and open a terminal in the extracted directory.
+
+### Step 2: Enter the project directory
+
+```bash
+cd docker-nginx-nodejs-postgres-demo
+```
+
+## Running the Project
+
+### Step 3: Verify Docker
 
 ```bash
 docker --version
 docker compose version
 ```
 
-## Installation
+Both commands must return version information. Start Docker Desktop or the Docker daemon if either command fails.
 
-```bash
-git clone https://github.com/your-username/docker-nginx-nodejs-postgres-demo.git
-cd docker-nginx-nodejs-postgres-demo
-```
-
-For local files that have not yet been published, simply open a terminal in the project directory.
-
-## Running the Project
-
-Build and start the complete stack:
+### Step 4: Build and deploy the stack
 
 ```bash
 docker compose up -d --build
 ```
 
-Check service health:
+This command builds the Nginx and API images, pulls PostgreSQL, creates `app-net` and `postgres-data`, and starts all three services.
+
+### Step 5: Confirm container health
 
 ```bash
 docker compose ps
 ```
 
-Open `http://localhost` or test HTTPS with `curl --insecure https://localhost`. HTTPS uses a self-signed certificate generated for this demonstration, so browsers will display a trust warning.
+The `postgres`, `api`, and `nginx` services should show `Up` and `healthy`. Only Nginx should display published host ports.
+
+If a service is not healthy, inspect its logs:
+
+```bash
+docker compose logs --tail=100 postgres api nginx
+```
+
+### Step 6: Test the application endpoint
+
+```bash
+curl http://localhost/
+```
+
+Expected response:
+
+```json
+{
+  "application": "Docker Nginx PostgreSQL Demo",
+  "status": "healthy"
+}
+```
+
+### Step 7: Test API health
+
+```bash
+curl http://localhost/health
+```
+
+Expected response:
+
+```json
+{
+  "status": "healthy"
+}
+```
+
+### Step 8: Test PostgreSQL data access
+
+```bash
+curl http://localhost/users
+```
+
+The response should contain a `users` array with five sample records loaded from `postgres/init.sql`.
+
+### Step 9: Test the database connection
+
+```bash
+curl http://localhost/dbcheck
+```
+
+Expected response format:
+
+```json
+{
+  "status": "healthy",
+  "timestamp": "<PostgreSQL timestamp>"
+}
+```
+
+### Step 10: Test HTTPS
+
+```bash
+curl --insecure https://localhost/health
+```
+
+The response should be `{"status":"healthy"}`. The `--insecure` option is required because the demo Nginx image generates a self-signed certificate. Replace it with a trusted certificate for production.
+
+### Step 11: Verify network isolation and Docker DNS
+
+```bash
+docker network inspect app-net
+docker compose exec api getent hosts postgres
+docker compose exec nginx getent hosts api
+```
+
+The network inspection should list all three containers. The DNS commands should resolve `postgres` and `api` to internal container addresses.
+
+Confirm that PostgreSQL is not published to the host:
+
+```bash
+docker compose port postgres 5432
+```
+
+A successful isolation test returns no host port.
+
+### Step 12: Confirm successful deployment
+
+The deployment is complete when:
+
+- All three services are healthy.
+- HTTP and HTTPS requests pass through Nginx.
+- `/users` returns five records from PostgreSQL.
+- `/dbcheck` returns a database timestamp.
+- `api` resolves `postgres`, and `nginx` resolves `api`.
+- PostgreSQL port 5432 has no host binding.
 
 If ports 80 or 443 are already occupied, override only the host bindings, for example with `HTTP_PORT=8080` and `HTTPS_PORT=8443`. The required defaults remain 80 and 443.
 
-Stop the stack without deleting database data:
+### Step 13: Stop the stack
+
+Stop the containers without deleting database data:
 
 ```bash
 docker compose down
@@ -126,23 +238,6 @@ docker compose down
 | GET | `/health` | API liveness response |
 | GET | `/users` | Users read from PostgreSQL |
 | GET | `/dbcheck` | Database connectivity and `SELECT NOW()` timestamp |
-
-Examples:
-
-```bash
-curl http://localhost/
-curl http://localhost/health
-curl http://localhost/users
-curl http://localhost/dbcheck
-```
-
-Expected root response:
-
-```json
-{
-  "application": "Docker Nginx PostgreSQL Demo",
-  "status": "healthy"
-}
 ```
 
 ## Docker Networking Explanation
@@ -189,9 +284,7 @@ This repository favors a runnable demo while preserving tier isolation. Before a
 
 ## Screenshots
 
-![Application screenshot placeholder](screenshots/placeholder.png)
-
-Replace the placeholder with a screenshot of a successful API response after starting the stack.
+The project status image is displayed in the overview. Replace `screenshots/placeholder.png` with an updated runtime screenshot when the deployment changes.
 
 ## Troubleshooting
 
@@ -217,4 +310,4 @@ Common issues include host port conflicts, a previously initialized database vol
 
 ## License
 
-This project is available under the [MIT License](LICENSE).
+This project is available under the [MIT License](https://github.com/Mahammad-Rafi/docker-nginx-nodejs-postgres-demo/blob/main/LICENSE).
