@@ -4,7 +4,7 @@
 
 A production-style, single-host three-tier application built with Docker Compose. Nginx is the only public-facing service, an Express API provides application logic, and PostgreSQL stores persistent data on an isolated Docker bridge network.
 
-![Three-Tier Docker Stack running successfully](screenshots/placeholder.png)
+![Docker Bridge Demo health response and three-tier architecture](screenshots/health.jpg)
 
 ## Architecture Diagram
 
@@ -114,7 +114,7 @@ docker-bridge-demo/
 |   `-- troubleshooting.md
 `-- screenshots/
     |-- docker-compose-ps.png
-    `-- placeholder.png
+    `-- health.jpg
 ```
 
 ## Prerequisites
@@ -484,7 +484,7 @@ This repository favors a runnable demo while preserving tier isolation. Before a
 
 ## Screenshots
 
-The overview uses the generated architecture preview. The Compose deployment section uses the supplied `docker compose ps` command output to show the expected service and port layout.
+The overview uses the application health and architecture image. The Compose deployment section uses the supplied `docker compose ps` command output to show the expected service and port layout.
 
 ## Troubleshooting
 
