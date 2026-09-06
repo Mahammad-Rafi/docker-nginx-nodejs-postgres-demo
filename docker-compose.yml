@@ -3,7 +3,7 @@ services:
     image: postgres:16-alpine
     environment:
       POSTGRES_USER: admin
-      POSTGRES_PASSWORD: password123
+      POSTGRES_PASSWORD: Password123
       POSTGRES_DB: appdb
     volumes:
       - postgres-data:/var/lib/postgresql/data
@@ -29,7 +29,7 @@ services:
       DB_HOST: postgres
       DB_PORT: 5432
       DB_USER: admin
-      DB_PASSWORD: password123
+      DB_PASSWORD: Password123
       DB_NAME: appdb
     expose:
       - "3000"

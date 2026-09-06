@@ -1,4 +1,4 @@
-# Three-Tier Docker Stack
+# Docker Bridge Demo
 
 ## Project Overview
 
@@ -30,6 +30,48 @@ flowchart TB
 
 Only Nginx publishes host ports. The API and database are accessible solely to containers attached to `app-net`.
 
+## Components
+
+### Nginx
+
+Nginx is the public reverse proxy and the only service with published ports.
+
+Responsibilities:
+
+- Accept requests from users.
+- Forward application requests to `api:3000`.
+- Forward the original host, client IP, proxy chain, and protocol headers.
+- Apply gzip compression and write access and error logs.
+- Terminate demo SSL/TLS connections. The included certificate is self-signed.
+- Support static content when a static location is added; the current configuration proxies all routes to the API.
+
+Published ports: `80` and `443`.
+
+### Node.js API
+
+The Express service provides the application tier.
+
+Responsibilities:
+
+- Execute business logic.
+- Query PostgreSQL through a bounded connection pool.
+- Provide health, user, and database-check endpoints.
+- Provide the application layer where authentication and authorization can be added; they are not implemented in this demonstration.
+
+Internal port: `3000`. No host port is published.
+
+### PostgreSQL
+
+PostgreSQL provides persistent relational storage.
+
+Responsibilities:
+
+- Store application data.
+- Initialize the `users` table and five sample records.
+- Persist the database cluster in the `postgres-data` volume.
+
+Internal port: `5432`. No host port is published.
+
 ## Features
 
 - One-command build and startup with Docker Compose
@@ -46,7 +88,7 @@ Only Nginx publishes host ports. The API and database are accessible solely to c
 ## Folder Structure
 
 ```text
-docker-nginx-nodejs-postgres-demo/
+docker-bridge-demo/
 |-- README.md
 |-- LICENSE
 |-- .gitignore
@@ -71,6 +113,7 @@ docker-nginx-nodejs-postgres-demo/
 |   |-- deployment.md
 |   `-- troubleshooting.md
 `-- screenshots/
+    |-- docker-compose-ps.png
     `-- placeholder.png
 ```
 
@@ -80,6 +123,41 @@ docker-nginx-nodejs-postgres-demo/
 - Available host ports 80 and 443
 - Git, when using the clone method
 
+## Install Docker
+
+Docker Desktop includes Docker Engine, the Docker CLI, and Docker Compose. Linux server users can install Docker Engine and the Compose plugin separately.
+
+### Windows
+
+1. Confirm that the computer meets the [Docker Desktop for Windows requirements](https://docs.docker.com/desktop/setup/install/windows-install/).
+2. Enable WSL 2 when required by running `wsl --install` in an administrator terminal, then restart Windows.
+3. Download and run Docker Desktop Installer.
+4. Select the WSL 2 backend during setup.
+5. Start Docker Desktop and wait until Docker Engine reports that it is running.
+
+### macOS
+
+1. Download the correct Intel or Apple silicon package from [Docker Desktop for Mac](https://docs.docker.com/desktop/setup/install/mac-install/).
+2. Open the downloaded image and move Docker to Applications.
+3. Start Docker and complete the initial setup prompts.
+
+### Linux
+
+1. Select the distribution-specific procedure in the [Docker Engine installation guide](https://docs.docker.com/engine/install/).
+2. Install Docker Engine and the Docker CLI from Docker's official package repository.
+3. Install the [Docker Compose plugin](https://docs.docker.com/compose/install/linux/).
+4. Start and enable the Docker service according to the distribution guide.
+
+### Verify the installation
+
+```bash
+docker --version
+docker compose version
+docker run --rm hello-world
+```
+
+The final command should download the test image and print Docker's successful installation message.
+
 ## Installation
 
 ### Step 1: Download the project
@@ -87,18 +165,18 @@ docker-nginx-nodejs-postgres-demo/
 Clone the repository with Git:
 
 ```bash
-git clone https://github.com/Mahammad-Rafi/docker-nginx-nodejs-postgres-demo.git
+git clone https://github.com/Mahammad-Rafi/docker-bridge-demo.git
 ```
 
-Alternatively, [download the latest ZIP archive](https://github.com/Mahammad-Rafi/docker-nginx-nodejs-postgres-demo/archive/refs/heads/main.zip), extract it, and open a terminal in the extracted directory.
+Alternatively, [download the latest ZIP archive](https://github.com/Mahammad-Rafi/docker-bridge-demo/archive/refs/heads/main.zip), extract it, and open a terminal in the extracted directory.
 
 ### Step 2: Enter the project directory
 
 ```bash
-cd docker-nginx-nodejs-postgres-demo
+cd docker-bridge-demo
 ```
 
-## Running the Project
+## Deployment Option 1: Docker Compose
 
 ### Step 3: Verify Docker
 
@@ -124,6 +202,10 @@ docker compose ps
 ```
 
 The `postgres`, `api`, and `nginx` services should show `Up` and `healthy`. Only Nginx should display published host ports.
+
+![Successful docker compose ps output](screenshots/docker-compose-ps.png)
+
+This supplied command-output image demonstrates that the API and PostgreSQL have internal ports only. The current configuration additionally publishes Nginx port 443 and reports health status after the checks complete.
 
 If a service is not healthy, inspect its logs:
 
@@ -230,6 +312,124 @@ Stop the containers without deleting database data:
 docker compose down
 ```
 
+## Deployment Option 2: Individual Containers
+
+Use this method to understand each Docker resource and container. Do not run it at the same time as the Compose deployment because both methods use the same names, network, volume, and host ports. If Compose is running, stop it first with `docker compose down`.
+
+Run all commands from the repository root.
+
+### Manual Step 1: Create the Docker network
+
+```bash
+docker network create app-net
+```
+
+This user-defined bridge supplies isolation and Docker DNS service discovery.
+
+### Manual Step 2: Start PostgreSQL
+
+```bash
+docker run -d --name postgres --network app-net --restart unless-stopped -e POSTGRES_USER=admin -e POSTGRES_PASSWORD=Password123 -e POSTGRES_DB=appdb -v postgres-data:/var/lib/postgresql/data postgres:16
+```
+
+The `-v` option creates or reuses `postgres-data`. There is no `-p` option, so port 5432 is not published.
+
+Wait for PostgreSQL:
+
+```bash
+docker exec postgres pg_isready -U admin -d appdb
+```
+
+Expected result: `accepting connections`.
+
+### Manual Step 3: Initialize the database
+
+```bash
+docker cp postgres/init.sql postgres:/tmp/init.sql
+docker exec postgres psql -U admin -d appdb -f /tmp/init.sql
+```
+
+Verify the five sample users:
+
+```bash
+docker exec postgres psql -U admin -d appdb -c "SELECT id, name, email, created_at FROM users ORDER BY id;"
+```
+
+### Manual Step 4: Build the Node.js API image
+
+```bash
+docker build -t docker-bridge-demo-api:latest ./api
+```
+
+### Manual Step 5: Start the Node.js API
+
+```bash
+docker run -d --name api --network app-net --restart unless-stopped -e DB_HOST=postgres -e DB_PORT=5432 -e DB_USER=admin -e DB_PASSWORD=Password123 -e DB_NAME=appdb docker-bridge-demo-api:latest
+```
+
+The API uses `postgres` as its database hostname. No API host port is published.
+
+Verify the API container and its logs:
+
+```bash
+docker ps --filter name=api
+docker logs api
+```
+
+### Manual Step 6: Build the Nginx image
+
+```bash
+docker build -t docker-bridge-demo-nginx:latest ./nginx
+```
+
+### Manual Step 7: Start Nginx
+
+```bash
+docker run -d --name nginx --network app-net --restart unless-stopped -p 80:80 -p 443:443 docker-bridge-demo-nginx:latest
+```
+
+Nginx resolves the API through the Docker DNS hostname `api` and is the only container that publishes ports.
+
+### Manual Step 8: Verify containers and network membership
+
+```bash
+docker ps
+docker network inspect app-net
+```
+
+The output should list `nginx`, `api`, and `postgres`. Only Nginx should show host mappings for ports 80 and 443.
+
+### Manual Step 9: Test the application
+
+```bash
+curl http://localhost/
+curl http://localhost/health
+curl http://localhost/users
+curl http://localhost/dbcheck
+curl --insecure https://localhost/health
+```
+
+The deployment is successful when the health responses report `healthy`, `/users` returns five records, and `/dbcheck` returns a PostgreSQL timestamp.
+
+### Manual Step 10: Verify private ports
+
+```bash
+docker port api 3000
+docker port postgres 5432
+```
+
+Both commands should return no host binding.
+
+### Manual Step 11: Stop and remove the manual containers
+
+```bash
+docker stop nginx api postgres
+docker rm nginx api postgres
+docker network rm app-net
+```
+
+These commands preserve `postgres-data`. To permanently delete the demonstration database, run `docker volume rm postgres-data` only after confirming the data is no longer required.
+
 ## API Endpoints
 
 | Method | Endpoint | Description |
@@ -284,7 +484,7 @@ This repository favors a runnable demo while preserving tier isolation. Before a
 
 ## Screenshots
 
-The project status image is displayed in the overview. Replace `screenshots/placeholder.png` with an updated runtime screenshot when the deployment changes.
+The overview uses the generated architecture preview. The Compose deployment section uses the supplied `docker compose ps` command output to show the expected service and port layout.
 
 ## Troubleshooting
 
@@ -310,4 +510,4 @@ Common issues include host port conflicts, a previously initialized database vol
 
 ## License
 
-This project is available under the [MIT License](https://github.com/Mahammad-Rafi/docker-nginx-nodejs-postgres-demo/blob/main/LICENSE).
+This project is available under the [MIT License](https://github.com/Mahammad-Rafi/docker-bridge-demo/blob/main/LICENSE).
