@@ -1,5 +1,10 @@
 # Docker Bridge Demo
 
+[![GitHub Release](https://img.shields.io/github/v/release/zhargan-byte/docker-bridge-demo?logo=github)](https://github.com/zhargan-byte/docker-bridge-demo/releases/latest)
+[![GitHub Container Registry](https://img.shields.io/badge/GHCR-Package-2496ED?logo=docker&logoColor=white)](https://github.com/zhargan-byte/docker-bridge-demo/pkgs/container/docker-bridge-demo)
+[![Docker Compose](https://img.shields.io/badge/Docker_Compose-Ready-2496ED?logo=docker&logoColor=white)](docker-compose.yml)
+[![License: MIT](https://img.shields.io/badge/License-MIT-green.svg)](LICENSE)
+
 ## Project Overview
 
 A production-style, single-host three-tier application built with Docker Compose. Nginx is the only public-facing service, an Express API provides application logic, and PostgreSQL stores persistent data on an isolated Docker bridge network.
@@ -84,6 +89,16 @@ Internal port: `5432`. No host port is published.
 - Persistent PostgreSQL named volume
 - Request, query, access, and error logging
 - Graceful Node.js shutdown
+
+## Published API Image
+
+The versioned Node.js API tier is published as a [GitHub Container Registry package](https://github.com/zhargan-byte/docker-bridge-demo/pkgs/container/docker-bridge-demo):
+
+```bash
+docker pull ghcr.io/zhargan-byte/docker-bridge-demo:v1.0.0
+```
+
+The package contains the API tier only. Use `docker compose up -d --build` for the complete Nginx, API, and PostgreSQL application because the API requires the private `postgres` service and Docker network.
 
 ## Folder Structure
 
@@ -503,7 +518,7 @@ Common issues include host port conflicts, a previously initialized database vol
 - Secret management and separate development/production Compose overrides
 - API authentication, authorization, pagination, and validation
 - Database migrations and automated backups
-- CI workflows for linting, tests, image builds, and vulnerability scanning
+- CI workflows for linting, integration tests, and vulnerability scanning
 - Observability with structured log shipping, metrics, tracing, and alerts
 - Multiple API replicas with Nginx load balancing
 - Deployment to an orchestrator such as Kubernetes or a managed container platform
